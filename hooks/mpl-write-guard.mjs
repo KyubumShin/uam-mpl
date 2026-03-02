@@ -3,6 +3,10 @@
  * MPL Write Guard Hook (PreToolUse)
  * Blocks orchestrator from directly editing source files when MPL is active.
  * Source file edits must be delegated to uam-worker agents.
+ *
+ * NOTE: Claude Code plugin PreToolUse hooks only fire for the main conversation,
+ * not for sub-agents spawned via Task tool. This means uam-worker agents can
+ * freely use Edit/Write without being blocked by this guard.
  */
 
 import { dirname, join, extname } from 'path';

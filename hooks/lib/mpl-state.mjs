@@ -13,7 +13,9 @@ const STATE_DIR = '.uam';
 const STATE_FILE = 'state.json';
 
 /**
- * Default top-level state schema
+ * Default top-level state schema.
+ * cost.max_total_tokens is a monitoring threshold, not a hard limit.
+ * Orchestrator can check this value for budget warnings.
  */
 const DEFAULT_STATE = {
   pipeline_id: null,
@@ -83,7 +85,7 @@ export function isUamActive(cwd) {
   const state = readState(cwd);
   if (!state) return true; // File exists but corrupt = fail-closed
   if (!state.current_phase) return false;
-  return state.current_phase !== 'completed' && state.current_phase !== 'cancelled';
+  return state.current_phase !== 'completed' && state.current_phase !== 'cancelled' && state.current_phase !== 'failed';
 }
 
 /**
@@ -96,7 +98,8 @@ export function isMplActive(cwd) {
   if (!state) return false;
   return state.run_mode === 'mpl' &&
          typeof state.current_phase === 'string' &&
-         state.current_phase.startsWith('mpl-');
+         state.current_phase.startsWith('mpl-') &&
+         state.current_phase !== 'mpl-failed';
 }
 
 /**
@@ -157,6 +160,28 @@ export function initMplState(cwd, featureName, maturityMode = 'standard') {
   const tmpPath = join(mplDir, `.state-${randomBytes(4).toString('hex')}.tmp`);
   writeFileSync(tmpPath, JSON.stringify(mplState, null, 2), { mode: 0o600 });
   renameSync(tmpPath, join(mplDir, 'state.json'));
+
+  // Initialize phase-decisions.md with empty sections
+  const pdPath = join(mplDir, 'phase-decisions.md');
+  if (!existsSync(pdPath)) {
+    const pdTemplate = `# Phase Decisions
+
+## Active Decisions
+
+(No active decisions yet)
+
+## Summary Decisions
+
+| ID | Description | Phase | Files |
+|----|------------|-------|-------|
+
+## Archived Decisions
+
+| ID | Description | Phase | Files |
+|----|------------|-------|-------|
+`;
+    writeFileSync(pdPath, pdTemplate);
+  }
 
   return mplState;
 }
@@ -273,7 +298,7 @@ export function loadImpactFiles(cwd, phaseImpact, tokenBudget = 5000) {
   const results = [];
   let usedTokens = 0;
   const MAX_LINES_PER_FILE = 500;
-  const TOKENS_PER_CHAR = 0.25; // ~4 chars per token
+  const TOKENS_PER_CHAR = 0.25; // ~4 chars per token (English baseline; CJK text may use ~0.5)
 
   const categories = ['create', 'modify', 'affected_tests', 'affected_config'];
 
@@ -476,6 +501,11 @@ export function readPhaseDecisions(cwd) {
         if (typeMatch) {
           currentPD.type = typeMatch[1].trim();
         }
+
+        const currentMatch = line.match(/^-\s*Current:\s*(.+)/i);
+        if (currentMatch) {
+          currentPD.current_value = currentMatch[1].trim();
+        }
       }
     }
 
@@ -493,6 +523,59 @@ export function readPhaseDecisions(cwd) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Append a discovery to .uam/discoveries.md
+ * @param {string} cwd - Working directory
+ * @param {{ id: string, phase: string, description: string, status: string, pp_conflict?: string }} discovery
+ */
+export function appendDiscovery(cwd, discovery) {
+  const discPath = join(cwd, STATE_DIR, 'discoveries.md');
+  const header = '# Discoveries\n\n';
+
+  let content = '';
+  if (existsSync(discPath)) {
+    content = readFileSync(discPath, 'utf-8');
+  } else {
+    content = header;
+    mkdirSync(join(cwd, STATE_DIR), { recursive: true });
+  }
+
+  const ppNote = discovery.pp_conflict ? ` [PP conflict: ${discovery.pp_conflict}]` : '';
+  const entry = `- ${discovery.id} (Phase ${discovery.phase}): ${discovery.description} [status: ${discovery.status}]${ppNote}\n`;
+
+  content += entry;
+  writeFileSync(discPath, content);
+}
+
+/**
+ * Save architecture anchor from decomposer output to .uam/mpl/architecture-anchor.md
+ * @param {string} cwd - Working directory
+ * @param {{ tech_stack: string[], directory_pattern: string, naming_convention: string, key_decisions: string[] }} anchor
+ */
+export function saveArchitectureAnchor(cwd, anchor) {
+  const mplDir = join(cwd, STATE_DIR, 'mpl');
+  mkdirSync(mplDir, { recursive: true });
+
+  const lines = [
+    '# Architecture Anchor',
+    '',
+    '## Tech Stack',
+    ...(anchor.tech_stack || []).map(t => `- ${t}`),
+    '',
+    '## Directory Pattern',
+    anchor.directory_pattern || '(not specified)',
+    '',
+    '## Naming Convention',
+    anchor.naming_convention || '(not specified)',
+    '',
+    '## Key Decisions',
+    ...(anchor.key_decisions || []).map(d => `- ${d}`),
+    ''
+  ];
+
+  writeFileSync(join(mplDir, 'architecture-anchor.md'), lines.join('\n'));
 }
 
 /**

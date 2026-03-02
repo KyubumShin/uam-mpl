@@ -9,6 +9,7 @@
  * 3. Return [MAGIC KEYWORD: UAM-MPL] message to trigger MPL skill
  */
 
+import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
@@ -57,9 +58,36 @@ function sanitize(text) {
 }
 
 /**
+ * Detect maturity mode from user prompt and .uam/config.json
+ * Priority: prompt keyword > config file > default 'standard'
+ */
+function detectMaturityMode(prompt, cwd) {
+  // 1. Check prompt keywords
+  const lower = prompt.toLowerCase();
+  if (/\b(explore|탐색)\b/.test(lower)) return 'explore';
+  if (/\b(strict|엄격)\b/.test(lower)) return 'strict';
+
+  // 2. Check .uam/config.json
+  try {
+    const configPath = join(cwd, '.uam', 'config.json');
+    if (existsSync(configPath)) {
+      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      if (['explore', 'standard', 'strict'].includes(config.maturity_mode)) {
+        return config.maturity_mode;
+      }
+    }
+  } catch {}
+
+  // 3. Default
+  return 'standard';
+}
+
+/**
  * Extract feature name from user prompt
  */
 function extractFeatureName(prompt) {
+  // Note: CJK text may concatenate without spaces (e.g., "할일관리API" -> "할일관리api").
+  // This is acceptable for pipeline_id slugs; the 40-char limit prevents excessive length.
   const cleaned = prompt.replace(/\bmpl\b/gi, '').trim();
   if (!cleaned) return 'unnamed';
 
@@ -100,7 +128,7 @@ async function main() {
     }
 
     // Check for active pipeline
-    if (isUamActive(cwd) || isMplActive(cwd)) {
+    if (isMplActive(cwd)) {
       console.log(JSON.stringify({
         continue: true,
         hookSpecificOutput: {
@@ -113,7 +141,8 @@ async function main() {
 
     // Initialize MPL state
     const featureName = extractFeatureName(prompt);
-    initMplState(cwd, featureName, 'standard');
+    const maturityMode = detectMaturityMode(prompt, cwd);
+    initMplState(cwd, featureName, maturityMode);
 
     const message = `[MAGIC KEYWORD: UAM-MPL]
 

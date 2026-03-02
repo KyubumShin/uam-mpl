@@ -61,13 +61,27 @@ async function main() {
     case 'mpl-init': {
       // MPL initialization: codebase analysis + PP interview
       const ppExists = existsSync(join(cwd, '.uam', 'pivot-points.md'));
-      console.log(JSON.stringify({
-        continue: true,
-        hookSpecificOutput: {
-          hookEventName: 'Stop',
-          additionalContext: `[UAM-MPL] Phase 0: Initialization in progress. PP: ${ppExists ? 'loaded' : 'pending interview'}. Complete codebase analysis and PP interview, then proceed to decomposition.`
-        }
-      }));
+      const analysisExists = existsSync(join(cwd, '.uam', 'mpl', 'codebase-analysis.json'));
+
+      if (ppExists && analysisExists) {
+        // Both PP and analysis complete → transition to decompose
+        writeState(cwd, { current_phase: 'mpl-decompose' });
+        console.log(JSON.stringify({
+          continue: true,
+          hookSpecificOutput: {
+            hookEventName: 'Stop',
+            additionalContext: '[UAM-MPL] Phase 0 complete (PP + Codebase Analysis). Transitioning to Phase Decomposition. Run uam-decomposer to break the task into micro-phases.'
+          }
+        }));
+      } else {
+        console.log(JSON.stringify({
+          continue: true,
+          hookSpecificOutput: {
+            hookEventName: 'Stop',
+            additionalContext: `[UAM-MPL] Phase 0: Initialization in progress. PP: ${ppExists ? 'loaded' : 'pending interview'}. Codebase analysis: ${analysisExists ? 'done' : 'pending'}. Complete both before proceeding to decomposition.`
+          }
+        }));
+      }
       break;
     }
 
@@ -78,12 +92,14 @@ async function main() {
       if (totalPhases > 0) {
         // Decomposition complete → transition to phase-running
         writeState(cwd, { current_phase: 'mpl-phase-running' });
-        writeMplPhaseState(cwd, { phases: { current: 'phase-1' } });
+        const firstPending = mplState?.phase_details?.find(p => p.status === 'pending');
+        const firstPhaseId = firstPending?.id || 'phase-1';
+        writeMplPhaseState(cwd, { phases: { current: firstPhaseId } });
         console.log(JSON.stringify({
           continue: true,
           hookSpecificOutput: {
             hookEventName: 'Stop',
-            additionalContext: `[UAM-MPL] Decomposition complete: ${totalPhases} phases generated. Transitioning to Phase Execution.`
+            additionalContext: `[UAM-MPL] Decomposition complete: ${totalPhases} phases generated. Transitioning to Phase Execution (${firstPhaseId}).`
           }
         }));
       } else {
@@ -210,8 +226,8 @@ async function main() {
     }
 
     case 'mpl-failed': {
-      // Terminal failure
-      writeState(cwd, { current_phase: 'completed' });
+      // Terminal failure — keep as 'failed', distinct from 'completed'
+      writeState(cwd, { current_phase: 'failed' });
       console.log(JSON.stringify({
         continue: false,
         hookSpecificOutput: {

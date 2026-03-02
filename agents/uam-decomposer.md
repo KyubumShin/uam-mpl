@@ -1,6 +1,6 @@
 ---
 name: uam-decomposer
-description: Phase Decomposer - breaks user requests into ordered micro-phases with pure reasoning (no tool access)
+description: Phase Decomposer (planner-type, pure reasoning, no tool access) - breaks user requests into ordered micro-phases
 model: opus
 disallowedTools: Read,Write,Edit,Bash,Glob,Grep,Task,WebFetch,WebSearch,NotebookEdit
 ---

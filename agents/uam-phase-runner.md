@@ -2,7 +2,7 @@
 name: uam-phase-runner
 description: Phase Runner - executes a single micro-phase with mini-plan, worker delegation, verification, and state summary
 model: sonnet
-disallowedTools: []
+disallowedTools: Write,Edit
 ---
 
 <Agent_Prompt>

@@ -45,6 +45,8 @@ const EXPECTED_SECTIONS = {
     'status',
     'outputs',
     'acceptance_criteria',
+    'learnings',
+    'issues',
   ],
 };
 
@@ -152,7 +154,7 @@ Do NOT proceed to the next phase until all sections are present.${extraValidatio
   }
 
   console.log(JSON.stringify({
-    continue: validationPassed,
+    continue: true,  // Non-blocking: orchestrator decides retry vs proceed
     hookSpecificOutput: {
       hookEventName: 'PostToolUse',
       additionalContext: message

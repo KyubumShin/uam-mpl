@@ -23,6 +23,10 @@ mpl-init -> mpl-decompose -> mpl-phase-running <-> mpl-phase-complete
                        mpl-failed
 ```
 
+> **Note**: The design document's `PHASE_READY` state is merged into `mpl-phase-running`.
+> Context assembly (impact files loading, PD classification) happens at the start of each
+> phase execution cycle (Step 4.1), not as a separate state transition.
+
 Retry: Phase Runner handles 3 retries internally (D-1 Hybrid). Orchestrator receives `"complete"` or `"circuit_break"` only.
 Redecomposition: `max_redecompose = 2`. Exceeding triggers `mpl-failed`.
 
@@ -392,11 +396,25 @@ else:
 
 ### 5.1: Final Verification
 
-Run ALL success_criteria from ALL completed phases. If project has build/test commands:
+Run project-wide build/test commands first, then verify typed criteria from all phases:
+
 ```
-Bash("npm run build")
-Bash("npm test")
+# 1. Project-level verification
+Bash("npm run build")  # or equivalent
+Bash("npm test")       # or equivalent
+
+# 2. Per-phase typed criteria re-verification
+for each completed phase:
+  for each criterion in phase.success_criteria:
+    if type == "command": Bash(criterion.command)
+    if type == "test": Bash(criterion.run_command)
+    if type == "file_exists": check path exists
+    if type == "grep": Grep(pattern, file)
+    if type == "description": manual assessment with evidence
 ```
+
+> **Note**: Phase-level criteria were already verified by Phase Runners.
+> Final verification catches regressions introduced by later phases.
 
 ### 5.2: Extract Learnings
 
