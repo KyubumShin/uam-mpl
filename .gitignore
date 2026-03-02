@@ -1,0 +1,4 @@
+node_modules/
+.uam/
+.omc/
+.DS_Store

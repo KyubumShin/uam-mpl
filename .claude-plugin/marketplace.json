@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "uam-mpl-local",
+  "description": "UAM Micro-Phase Loop pipeline - decomposes tasks into micro-phases with plan-execute-verify loops",
+  "owner": {
+    "name": "KyubumShin",
+    "email": ""
+  },
+  "plugins": [
+    {
+      "name": "uam-mpl",
+      "description": "Decomposes tasks into micro-phases with independent plan-execute-verify mini-loops. Orchestrator-Worker separation enforced via hooks.",
+      "version": "1.0.0",
+      "author": {
+        "name": "KyubumShin"
+      },
+      "source": "./",
+      "category": "workflow",
+      "homepage": "https://github.com/KyubumShin/harness_lab",
+      "tags": [
+        "agent",
+        "orchestration",
+        "micro-phase",
+        "pipeline"
+      ]
+    }
+  ],
+  "version": "1.0.0"
+}

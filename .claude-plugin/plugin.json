@@ -1,0 +1,17 @@
+{
+  "name": "uam-mpl",
+  "version": "1.0.0",
+  "description": "UAM Micro-Phase Loop (MPL) Pipeline - Decomposes tasks into micro-phases with independent plan-execute-verify loops",
+  "author": {
+    "name": "KyubumShin"
+  },
+  "license": "MIT",
+  "keywords": [
+    "agent",
+    "orchestration",
+    "micro-phase",
+    "pipeline"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}
