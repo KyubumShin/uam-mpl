@@ -87,14 +87,19 @@ fi
 if [[ "$UPDATE_MODE" == true ]]; then
   echo -e "${BLUE}[update] 캐시 동기화 중...${NC}"
 
-  # Update marketplace source
-  claude plugin marketplace update "$MARKETPLACE_NAME" 2>/dev/null || true
+  PLUGIN_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$PLUGIN_JSON','utf8')).version)")
+  CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$PLUGIN_VERSION"
 
-  # Reinstall to refresh cache
-  claude plugin uninstall "$PLUGIN_NAME" 2>/dev/null || true
-  claude plugin install "${PLUGIN_NAME}@${MARKETPLACE_NAME}" --scope user 2>/dev/null
+  if [[ -d "$CACHE_DIR" ]]; then
+    rsync -a --delete \
+      --exclude='.git' --exclude='.omc' --exclude='.uam' --exclude='node_modules' \
+      "$UAM_MPL_ROOT/" "$CACHE_DIR/"
+    echo -e "${GREEN}✓ 캐시 동기화 완료: $CACHE_DIR${NC}"
+  else
+    echo -e "${RED}✗ 캐시 디렉토리 없음. 먼저 ./install.sh --global 로 설치하세요.${NC}"
+    exit 1
+  fi
 
-  echo -e "${GREEN}✓ 캐시 동기화 완료${NC}"
   echo ""
   echo -e "${GREEN}Claude Code를 재시작하면 변경사항이 적용됩니다.${NC}"
   exit 0
